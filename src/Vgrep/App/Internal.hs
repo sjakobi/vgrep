@@ -4,8 +4,10 @@ module Vgrep.App.Internal where
 
 import           Control.Concurrent.Async
 import           Control.Exception
-import           Graphics.Vty             (Vty)
-import qualified Graphics.Vty             as Vty
+import           Graphics.Vty                         (Vty)
+import qualified Graphics.Vty                         as Vty
+import           Graphics.Vty.Platform.Unix           (mkVtyWithSettings)
+import           Graphics.Vty.Platform.Unix.Settings  (UnixSettings (..), defaultSettings)
 import           Pipes
 import           System.Posix.IO
 import           System.Posix.Types       (Fd)
@@ -44,9 +46,10 @@ withVty :: (Vty -> IO a) -> IO a
 withVgrepVty :: (Vty -> VgrepT s IO a) -> VgrepT s IO a
 (withVty, withVgrepVty) =
     let initVty fd = do
-            cfg <- Vty.standardIOConfig
-            Vty.mkVty cfg { Vty.inputFd  = Just fd
-                          , Vty.outputFd = Just fd }
+            cfg <- Vty.userConfig
+            settings <- defaultSettings
+            mkVtyWithSettings cfg settings { settingInputFd  = fd
+                                           , settingOutputFd = fd }
     in  ( \action -> withTty      $ \fd -> bracket      (initVty fd) Vty.shutdown action
         , \action -> withVgrepTty $ \fd -> vgrepBracket (initVty fd) Vty.shutdown action)
 

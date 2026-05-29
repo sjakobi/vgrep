@@ -16,6 +16,7 @@ import           Graphics.Vty.Attributes (Attr)
 import qualified Graphics.Vty.Attributes as Vty
 
 import Vgrep.Ansi.Type
+import Vgrep.Ansi.Vty.Attributes ()
 
 
 {- |
