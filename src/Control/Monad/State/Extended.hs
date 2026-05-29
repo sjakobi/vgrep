@@ -1,10 +1,12 @@
 module Control.Monad.State.Extended
-    ( module Control.Monad.State.Strict
+    ( module Control.Monad
+    , module Control.Monad.State.Strict
     , liftState
     , whenS
     , unlessS
     ) where
 
+import Control.Monad
 import Control.Monad.State.Strict
 
 liftState :: MonadState s m => State s a -> m a
