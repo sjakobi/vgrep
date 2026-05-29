@@ -7,7 +7,7 @@ import           Control.Exception
 import           Graphics.Vty                         (Vty)
 import qualified Graphics.Vty                         as Vty
 import           Graphics.Vty.Platform.Unix           (mkVtyWithSettings)
-import           Graphics.Vty.Platform.Unix.Settings  (UnixSettings (..), defaultSettings)
+import           Graphics.Vty.Platform.Unix.Settings  (UnixSettings (..), VtyUnixConfigurationError (..), currentTerminalName)
 import           Pipes
 import           System.Posix.IO
 import           System.Posix.Types       (Fd)
@@ -47,9 +47,18 @@ withVgrepVty :: (Vty -> VgrepT s IO a) -> VgrepT s IO a
 (withVty, withVgrepVty) =
     let initVty fd = do
             cfg <- Vty.userConfig
-            settings <- defaultSettings
-            mkVtyWithSettings cfg settings { settingInputFd  = fd
-                                           , settingOutputFd = fd }
+            -- We deliberately bypass vty-unix's 'defaultSettings': it flushes
+            -- the global stdin handle, which for @grep ... | vgrep@ is the
+            -- (already-closed) grep pipe and throws an EOF exception. vgrep
+            -- drives the terminal through @fd@ (\/dev\/tty), so we build the
+            -- settings ourselves and leave stdin untouched.
+            term <- currentTerminalName >>= maybe (throwIO MissingTermEnvVar) pure
+            let settings = UnixSettings { settingVmin      = 1
+                                        , settingVtime     = 100
+                                        , settingInputFd   = fd
+                                        , settingOutputFd  = fd
+                                        , settingTermName  = term }
+            mkVtyWithSettings cfg settings
     in  ( \action -> withTty      $ \fd -> bracket      (initVty fd) Vty.shutdown action
         , \action -> withVgrepTty $ \fd -> vgrepBracket (initVty fd) Vty.shutdown action)
 
