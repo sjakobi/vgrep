@@ -12,11 +12,11 @@ import           Data.Bits
 import           Data.Functor
 import           Data.Text               (Text)
 import qualified Data.Text               as T
-import           Graphics.Vty.Attributes (Attr)
+import           Graphics.Vty.Attributes (Attr, currentAttr)
 import qualified Graphics.Vty.Attributes as Vty
 
 import Vgrep.Ansi.Type
-import Vgrep.Ansi.Vty.Attributes ()
+import Vgrep.Ansi.Vty.Attributes (combineAttr)
 
 
 {- |
@@ -57,7 +57,7 @@ parseAnsi = either error id . parseOnly ansiFormatted
 -- This parser does not fail, it will rather consume and return the remaining
 -- input as unformatted text.
 ansiFormatted :: Parser AnsiFormatted
-ansiFormatted = go mempty
+ansiFormatted = go currentAttr
   where
     go :: Attr -> Parser AnsiFormatted
     go attr = endOfInput $> mempty
@@ -69,7 +69,14 @@ ansiFormatted = go mempty
         let attr' = foldr ($) attr (reverse acs)
         t <- rawText
         rest <- go attr'
-        pure (format attr' (bare t) <> rest)
+        pure (formatChunk attr' t <> rest)
+
+    -- 'bare' never yields a 'Format' node, so 'format''s merge case can't
+    -- apply here; all that's left is dropping the 'currentAttr' identity.
+    formatChunk :: Attr -> Text -> AnsiFormatted
+    formatChunk attr t
+        | attr == currentAttr = bare t
+        | otherwise           = format' attr (bare t)
 
     rawText :: Parser Text
     rawText = atLeastOneTill (== '\ESC') <|> endOfInput $> ""
@@ -97,13 +104,14 @@ data Csi = Csi [Int] Char
 
 csiToAttrChange :: Csi -> Attr -> Attr
 csiToAttrChange = \case
-    Csi [] 'm' -> const mempty
-    Csi is 'm' -> foldMap attrChangeFromCode is
+    Csi [] 'm' -> const currentAttr
+    Csi is 'm' -> \attr ->
+        foldr combineAttr currentAttr (map (\code -> attrChangeFromCode code attr) is)
     _otherwise -> id
 
 attrChangeFromCode :: Int -> Attr -> Attr
 attrChangeFromCode = \case
-    0  -> const mempty
+    0  -> const currentAttr
     1  -> withStyle Vty.bold
     3  -> withStyle Vty.standout
     4  -> withStyle Vty.underline
