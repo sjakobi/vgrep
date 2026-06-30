@@ -69,14 +69,7 @@ ansiFormatted = go currentAttr
         let attr' = foldr ($) attr (reverse acs)
         t <- rawText
         rest <- go attr'
-        pure (formatChunk attr' t <> rest)
-
-    -- 'bare' never yields a 'Format' node, so 'format''s merge case can't
-    -- apply here; all that's left is dropping the 'currentAttr' identity.
-    formatChunk :: Attr -> Text -> AnsiFormatted
-    formatChunk attr t
-        | attr == currentAttr = bare t
-        | otherwise           = format' attr (bare t)
+        pure (ansiText attr' t <> rest)
 
     rawText :: Parser Text
     rawText = atLeastOneTill (== '\ESC') <|> endOfInput $> ""

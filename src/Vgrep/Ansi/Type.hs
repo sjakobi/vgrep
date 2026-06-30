@@ -6,6 +6,7 @@ module Vgrep.Ansi.Type
   , bare
   , format
   , format'
+  , ansiText
   , cat
   -- * Modifying the underlying text
   , mapText
@@ -20,7 +21,7 @@ module Vgrep.Ansi.Type
 import           Data.Foldable (foldl')
 import           Data.Text     (Text)
 import qualified Data.Text     as T
-import           Graphics.Vty  (Attr)
+import           Graphics.Vty  (Attr, currentAttr)
 import           Prelude       hiding (length)
 
 
@@ -97,6 +98,15 @@ format attr formatted
 
 format' :: attr -> Formatted attr -> Formatted attr
 format' attr formatted = Format (length formatted) attr formatted
+
+-- | Formats a piece of raw 'Text' with a vty 'Attr', collapsing to a bare
+-- 'Text' node when the attribute applies no formatting (i.e. equals
+-- 'currentAttr'). Unlike 'format' this performs no attribute merging: raw text
+-- is never an already-'Format'ted node, so only the identity check remains.
+ansiText :: Attr -> Text -> AnsiFormatted
+ansiText attr t
+    | attr == currentAttr = bare t
+    | otherwise           = format' attr (bare t)
 
 -- | Concatenates pieces of 'Formatted' text. Redundant formattings and blocks
 -- of equal formatting are 'fuse'd together.
