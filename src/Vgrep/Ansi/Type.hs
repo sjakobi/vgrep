@@ -5,7 +5,6 @@ module Vgrep.Ansi.Type
   , emptyFormatted
   , bare
   , format
-  , format'
   , ansiText
   , cat
   -- * Modifying the underlying text
