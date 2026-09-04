@@ -4,8 +4,10 @@ module Vgrep.App.Internal where
 
 import           Control.Concurrent.Async
 import           Control.Exception
-import           Graphics.Vty             (Vty)
-import qualified Graphics.Vty             as Vty
+import           Graphics.Vty                         (Vty)
+import qualified Graphics.Vty                         as Vty
+import           Graphics.Vty.Platform.Unix           (mkVtyWithSettings)
+import           Graphics.Vty.Platform.Unix.Settings  (UnixSettings (..), VtyUnixConfigurationError (..), currentTerminalName)
 import           Pipes
 import           System.Posix.IO
 import           System.Posix.Types       (Fd)
@@ -37,16 +39,23 @@ withEvThread sink vty =
 
 
 -- | Passes a 'Vty' instance to the action and shuts it down properly after the
--- action finishes. The 'Vty.inputFd' and 'Vty.outputFd' handles are connected
--- to @\/dev\/tty@ (see 'tty').
+-- action finishes.
+--
+-- Input and output are connected to @\/dev\/tty@ (see 'tty').
 withVty :: (Vty -> IO a) -> IO a
 -- | Like 'withVty', but lifted to @'VgrepT' s 'IO'@.
 withVgrepVty :: (Vty -> VgrepT s IO a) -> VgrepT s IO a
 (withVty, withVgrepVty) =
     let initVty fd = do
-            cfg <- Vty.standardIOConfig
-            Vty.mkVty cfg { Vty.inputFd  = Just fd
-                          , Vty.outputFd = Just fd }
+            cfg <- Vty.userConfig
+            -- Can't use vty-unix's 'defaultSettings', as they would flush stdin.
+            term <- currentTerminalName >>= maybe (throwIO MissingTermEnvVar) pure
+            let settings = UnixSettings { settingVmin      = 1   -- vty-unix's default
+                                        , settingVtime     = 100 -- vty-unix's default
+                                        , settingInputFd   = fd
+                                        , settingOutputFd  = fd
+                                        , settingTermName  = term }
+            mkVtyWithSettings cfg settings
     in  ( \action -> withTty      $ \fd -> bracket      (initVty fd) Vty.shutdown action
         , \action -> withVgrepTty $ \fd -> vgrepBracket (initVty fd) Vty.shutdown action)
 

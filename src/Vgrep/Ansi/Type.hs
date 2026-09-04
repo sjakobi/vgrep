@@ -5,6 +5,7 @@ module Vgrep.Ansi.Type
   , emptyFormatted
   , bare
   , format
+  , ansiText
   , cat
   -- * Modifying the underlying text
   , mapText
@@ -19,7 +20,7 @@ module Vgrep.Ansi.Type
 import           Data.Foldable (foldl')
 import           Data.Text     (Text)
 import qualified Data.Text     as T
-import           Graphics.Vty  (Attr)
+import           Graphics.Vty  (Attr, currentAttr)
 import           Prelude       hiding (length)
 
 
@@ -47,10 +48,10 @@ instance Functor Formatted where
         Format l a t -> Format l (f a) (fmap f t)
         Cat l ts     -> Cat l (map (fmap f) ts)
 
-instance (Eq attr, Semigroup attr) => Semigroup (Formatted attr) where
+instance Eq attr => Semigroup (Formatted attr) where
     (<>) = fuse
 
-instance (Eq attr, Semigroup attr) => Monoid (Formatted attr) where
+instance Eq attr => Monoid (Formatted attr) where
     mempty = Empty
 
 
@@ -97,9 +98,18 @@ format attr formatted
 format' :: attr -> Formatted attr -> Formatted attr
 format' attr formatted = Format (length formatted) attr formatted
 
+-- | Formats raw 'Text' with a vty 'Attr'.
+--
+-- Yields a 'bare' 'Text' node when the attribute is 'currentAttr', i.e.
+-- applies no formatting.
+ansiText :: Attr -> Text -> AnsiFormatted
+ansiText attr t
+    | attr == currentAttr = bare t
+    | otherwise           = format' attr (bare t)
+
 -- | Concatenates pieces of 'Formatted' text. Redundant formattings and blocks
 -- of equal formatting are 'fuse'd together.
-cat :: (Eq attr, Monoid attr) => [Formatted attr] -> Formatted attr
+cat :: Eq attr => [Formatted attr] -> Formatted attr
 cat = \case
     []  -> emptyFormatted
     [t] -> t
@@ -121,7 +131,7 @@ cat' = \case
 -- >>> format (Just ()) (bare "Left") `fuse` format (Just ()) (bare "Right")
 -- Format 9 (Just ()) (Text 9 "LeftRight")
 --
-fuse :: (Eq attr, Semigroup attr) => Formatted attr -> Formatted attr -> Formatted attr
+fuse :: Eq attr => Formatted attr -> Formatted attr -> Formatted attr
 fuse left right = case (left, right) of
     (Empty,           formatted)    -> formatted
     (formatted,       Empty)        -> formatted
