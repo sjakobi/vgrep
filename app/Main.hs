@@ -6,7 +6,7 @@ module Main (main) where
 
 import           Control.Concurrent.Async
 import           Control.Lens.Compat
-import           Control.Monad              (void, when)
+import           Control.Monad              (when)
 import           Control.Monad.Reader
 import           Data.Maybe
 import           Data.Ratio
