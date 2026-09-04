@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Vgrep.App.Internal where
@@ -75,4 +76,8 @@ withVgrepTty :: (Fd -> VgrepT s IO a) -> VgrepT s IO a
 -- | Opens @\/dev\/tty@ in Read/Write mode. Should be connected to the @stdin@ and
 -- @stdout@ of a GUI process (e. g. 'Vty.Vty').
 tty :: IO Fd
-tty = openFd "/dev/tty" ReadWrite Nothing defaultFileFlags
+tty = openFd "/dev/tty" ReadWrite
+#if !MIN_VERSION_unix(2,8,0)
+            Nothing
+#endif
+            defaultFileFlags

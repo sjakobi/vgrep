@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell   #-}
@@ -5,6 +6,7 @@ module Main (main) where
 
 import           Control.Concurrent.Async
 import           Control.Lens.Compat
+import           Control.Monad              (when)
 import           Control.Monad.Reader
 import           Data.Maybe
 import           Data.Ratio
@@ -259,7 +261,11 @@ invokeEditor state = case view (results . currentFileName . to (fmap T.unpack)) 
 
 exec :: MonadIO io => FilePath -> [String] -> io ()
 exec command args = liftIO $ do
-    tty <- openFd "/dev/tty" ReadWrite Nothing defaultFileFlags >>= fdToHandle
+    tty <- openFd "/dev/tty" ReadWrite
+#if !MIN_VERSION_unix(2,8,0)
+                  Nothing
+#endif
+                  defaultFileFlags >>= fdToHandle
     (_,_,_,h) <- createProcess (proc command args) {std_in = UseHandle tty}
     void (waitForProcess h)
     hClose tty
